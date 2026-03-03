@@ -5,7 +5,7 @@ spring:
   datasource:
     url: jdbc:postgresql://localhost:5432/case_db
     username: postgres
-    password: postgres
+    password: "qwerty123@"
 
   jpa:
     hibernate:
