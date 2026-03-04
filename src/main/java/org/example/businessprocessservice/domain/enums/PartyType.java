@@ -1,4 +1,6 @@
 package org.example.businessprocessservice.domain.enums;
 
-public class PartyType {
+public enum PartyType {
+    PERSON,
+    LEGAL_ENTITY
 }
