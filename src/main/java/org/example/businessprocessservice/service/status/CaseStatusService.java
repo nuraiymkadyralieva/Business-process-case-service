@@ -2,27 +2,37 @@ package org.example.businessprocessservice.service.status;
 
 import jakarta.transaction.Transactional;
 import org.example.businessprocessservice.domain.entity.CaseEntity;
+import org.example.businessprocessservice.domain.entity.CasePartyEntity;
 import org.example.businessprocessservice.domain.entity.StatusHistoryEntity;
 import org.example.businessprocessservice.domain.enums.CaseStatus;
 import org.example.businessprocessservice.exception.ForbiddenStatusTransitionException;
 import org.example.businessprocessservice.exception.NotFoundException;
+import org.example.businessprocessservice.repository.CasePartyRepository;
 import org.example.businessprocessservice.repository.CaseRepository;
 import org.example.businessprocessservice.repository.StatusHistoryRepository;
+import org.example.businessprocessservice.web.dto.CasePartyShortResponse;
 import org.example.businessprocessservice.web.dto.CaseResponse;
 import org.example.businessprocessservice.web.dto.ChangeStatusRequest;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Service
 public class CaseStatusService {
 
     private final CaseRepository caseRepository;
     private final StatusHistoryRepository historyRepository;
+    private final CasePartyRepository casePartyRepository;
 
-    public CaseStatusService(CaseRepository caseRepository, StatusHistoryRepository historyRepository) {
+    public CaseStatusService(
+            CaseRepository caseRepository,
+            StatusHistoryRepository historyRepository,
+            CasePartyRepository casePartyRepository
+    ) {
         this.caseRepository = caseRepository;
         this.historyRepository = historyRepository;
+        this.casePartyRepository = casePartyRepository;
     }
 
     @Transactional
@@ -44,7 +54,7 @@ public class CaseStatusService {
             throw new ForbiddenStatusTransitionException("Forbidden transition: " + from + " -> " + to);
         }
 
-        // 2) Обязательные условия (каркас: допишем позже)
+        // 2) Обязательные условия
         checkPreconditions(c, from, to, req);
 
         // 3) Применяем изменения
@@ -68,25 +78,22 @@ public class CaseStatusService {
 
         historyRepository.save(h);
 
+        // ✅ возвращаем кейс + краткие участники
         return toResponse(saved);
     }
 
     /**
      * Обязательные условия для перехода статуса.
-     * Сюда добавим проверки вроде:
-     * - нельзя завершить без обязательных документов
-     * - нельзя перевести в PROCEDURE_RUNNING без участников
-     * и т.д.
      */
     private void checkPreconditions(CaseEntity c, CaseStatus from, CaseStatus to, ChangeStatusRequest req) {
-        // TODO: пример будущей логики:
-        // if (to == CaseStatus.COMPLETED) {
-        //     boolean ok = documentRepository.existsRequiredForCase(c.getId());
-        //     if (!ok) throw new IllegalStateException("Cannot complete without required documents");
+        // Пример на будущее:
+        // if (to == CaseStatus.PROCEDURE_RUNNING) {
+        //     boolean hasParties = casePartyRepository.existsByCaseId(c.getId());
+        //     if (!hasParties) throw new IllegalStateException("Cannot start procedure without parties");
         // }
     }
 
-    private static CaseResponse toResponse(CaseEntity e) {
+    private CaseResponse toResponse(CaseEntity e) {
         CaseResponse r = new CaseResponse();
         r.setId(e.getId());
         r.setCaseNumber(e.getCaseNumber());
@@ -94,6 +101,28 @@ public class CaseStatusService {
         r.setStatus(e.getStatus());
         r.setStartDate(e.getStartDate());
         r.setEndDate(e.getEndDate());
+
+        // ✅ подтягиваем участников и маппим в короткий формат
+        List<CasePartyShortResponse> parties = casePartyRepository
+                .findAllByCaseIdOrderByCreatedAtAsc(e.getId())
+                .stream()
+                .map(CaseStatusService::toShortParty)
+                .toList();
+
+        r.setParties(parties);
+
+        return r;
+    }
+
+    private static CasePartyShortResponse toShortParty(CasePartyEntity e) {
+        CasePartyShortResponse r = new CasePartyShortResponse();
+        r.setPartyType(e.getPartyType());
+        r.setDisplayName(e.getDisplayName());
+
+        if (e.getRole() != null) {
+            r.setRoleCode(e.getRole().getCode());
+        }
+
         return r;
     }
 }

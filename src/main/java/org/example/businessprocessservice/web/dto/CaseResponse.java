@@ -3,7 +3,19 @@ package org.example.businessprocessservice.web.dto;
 import org.example.businessprocessservice.domain.enums.CaseStatus;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
+import com.fasterxml.jackson.annotation.JsonPropertyOrder;
+
+@JsonPropertyOrder({
+        "id",
+        "caseNumber",
+        "procedureType",
+        "status",
+        "startDate",
+        "endDate",
+        "parties"
+})
 public class CaseResponse {
     private Long id;
     private String caseNumber;
@@ -11,6 +23,9 @@ public class CaseResponse {
     private CaseStatus status;
     private LocalDateTime startDate;
     private LocalDateTime endDate;
+
+    // ✅ краткие участники (3 поля)
+    private List<CasePartyShortResponse> parties;
 
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
@@ -29,4 +44,7 @@ public class CaseResponse {
 
     public LocalDateTime getEndDate() { return endDate; }
     public void setEndDate(LocalDateTime endDate) { this.endDate = endDate; }
+
+    public List<CasePartyShortResponse> getParties() { return parties; }
+    public void setParties(List<CasePartyShortResponse> parties) { this.parties = parties; }
 }
