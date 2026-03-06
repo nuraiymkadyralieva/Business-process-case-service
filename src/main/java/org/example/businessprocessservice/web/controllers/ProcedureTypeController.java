@@ -4,6 +4,7 @@ import jakarta.validation.Valid;
 import org.example.businessprocessservice.service.procedure.ProcedureTypeService;
 import org.example.businessprocessservice.web.dto.ProcedureTypeRequest;
 import org.example.businessprocessservice.web.dto.ProcedureTypeResponse;
+import org.example.businessprocessservice.web.dto.UpdateProcedureTypeRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
@@ -28,6 +29,13 @@ public class ProcedureTypeController {
     @ResponseStatus(HttpStatus.CREATED)
     public ProcedureTypeResponse create(@Valid @RequestBody ProcedureTypeRequest req) {
         return service.create(req);
+    }
+
+    // ✅ UPDATE (code не меняем, меняем только name/description)
+    @PatchMapping("/{code}")
+    public ProcedureTypeResponse update(@PathVariable String code,
+                                        @RequestBody UpdateProcedureTypeRequest req) {
+        return service.updateByCode(code, req);
     }
 
     @DeleteMapping("/{code}")
