@@ -14,13 +14,20 @@ import org.example.businessprocessservice.repository.StatusHistoryRepository;
 import org.example.businessprocessservice.web.dto.CasePartyShortResponse;
 import org.example.businessprocessservice.web.dto.CaseResponse;
 import org.example.businessprocessservice.web.dto.ChangeStatusRequest;
+import org.example.businessprocessservice.web.dto.ChangeStatusResponse;
 import org.springframework.stereotype.Service;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 
 @Service
 public class CaseStatusService {
+
+    private static final Logger log = LoggerFactory.getLogger(CaseStatusService.class);
 
     private final CaseRepository caseRepository;
     private final StatusHistoryRepository historyRepository;
@@ -40,9 +47,8 @@ public class CaseStatusService {
     }
 
     @Transactional
-    public CaseResponse changeStatus(Long caseId, ChangeStatusRequest req) {
+    public ChangeStatusResponse changeStatus(Long caseId, ChangeStatusRequest req) {
 
-        // ✅ защита от пустого тела запроса (иначе NPE на req.getNewStatus())
         if (req == null) throw new IllegalArgumentException("Request body is required");
 
         CaseEntity c = caseRepository.findById(caseId)
@@ -53,26 +59,20 @@ public class CaseStatusService {
 
         if (to == null) throw new IllegalArgumentException("newStatus is required");
 
-        // 1) Запрещённые переходы (граф переходов)
         if (!TransitionRules.canMove(from, to)) {
             throw new ForbiddenStatusTransitionException("Forbidden transition: " + from + " -> " + to);
         }
 
-        // 2) Обязательные условия
         checkPreconditions(c, from, to, req);
 
-        // 3) Применяем изменения
         c.setStatus(to);
 
-        // endDate ставим только один раз (не перезаписываем)
         if (to == CaseStatus.COMPLETED && c.getEndDate() == null) {
             c.setEndDate(LocalDateTime.now());
         }
 
-        // 4) Сохраняем кейс
         CaseEntity saved = caseRepository.save(c);
 
-        // 5) Пишем историю
         StatusHistoryEntity h = new StatusHistoryEntity();
         h.setCaseId(saved.getId());
         h.setPreviousStatus(from.name());
@@ -82,15 +82,22 @@ public class CaseStatusService {
 
         historyRepository.save(h);
 
-        // ✅ возвращаем кейс + краткие участники
-        return toResponse(saved);
+        // ✅ triggers (stub)
+        List<String> triggers = new ArrayList<>();
+        triggers.add("METRICS_RECALCULATED (stub)");
+        triggers.add("NOTIFICATION_SENT (stub: log/email)");
+
+        // ✅ оставляем и логи (как stub)
+        log.info("Metrics stub: recalculated for caseId={}, status={}", saved.getId(), to);
+        log.info("Notification stub: caseId={} status changed {} -> {}, initiatedBy={}",
+                saved.getId(), from, to, req.getInitiatedBy());
+
+        ChangeStatusResponse resp = new ChangeStatusResponse();
+        resp.setCaseData(toResponse(saved));
+        resp.setTriggers(triggers);
+        return resp;
     }
 
-    /**
-     * Обязательные условия для перехода статуса.
-     * - PROCEDURE_RUNNING требует хотя бы 1 участника
-     * - COMPLETED требует хотя бы 1 документ
-     */
     private void checkPreconditions(CaseEntity c, CaseStatus from, CaseStatus to, ChangeStatusRequest req) {
 
         if (to == CaseStatus.PROCEDURE_RUNNING) {
@@ -125,7 +132,6 @@ public class CaseStatusService {
         r.setStartDate(e.getStartDate());
         r.setEndDate(e.getEndDate());
 
-        // ✅ подтягиваем участников и маппим в короткий формат
         List<CasePartyShortResponse> parties = casePartyRepository
                 .findAllByCaseIdOrderByCreatedAtAsc(e.getId())
                 .stream()
@@ -133,7 +139,6 @@ public class CaseStatusService {
                 .toList();
 
         r.setParties(parties);
-
         return r;
     }
 
@@ -141,11 +146,7 @@ public class CaseStatusService {
         CasePartyShortResponse r = new CasePartyShortResponse();
         r.setPartyType(e.getPartyType());
         r.setDisplayName(e.getDisplayName());
-
-        if (e.getRole() != null) {
-            r.setRoleCode(e.getRole().getCode());
-        }
-
+        if (e.getRole() != null) r.setRoleCode(e.getRole().getCode());
         return r;
     }
 }

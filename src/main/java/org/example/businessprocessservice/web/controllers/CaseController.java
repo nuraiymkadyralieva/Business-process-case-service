@@ -5,6 +5,7 @@ import org.example.businessprocessservice.domain.enums.CaseStatus;
 import org.example.businessprocessservice.service.cases.CaseService;
 import org.example.businessprocessservice.web.dto.CaseResponse;
 import org.example.businessprocessservice.web.dto.CreateCaseRequest;
+import org.example.businessprocessservice.web.dto.UpdateCaseRequest;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
@@ -15,7 +16,7 @@ import org.springframework.web.bind.annotation.*;
 import static org.springframework.data.domain.Sort.Direction.DESC;
 
 @RestController
-@RequestMapping("/api/cases")
+@RequestMapping("/api/cases") // ✅ без слэша в конце
 public class CaseController {
 
     private final CaseService caseService;
@@ -35,8 +36,8 @@ public class CaseController {
         return caseService.getCase(id);
     }
 
-    // ✅ ВОТ ЭТОГО НЕ ХВАТАЛО: список + фильтрация + поиск + пагинация
-    @GetMapping
+    // ✅ LIST вынесли на отдельный путь, чтобы в Swagger не путалось
+    @GetMapping("/search")
     public Page<CaseResponse> list(
             @RequestParam(required = false) String caseNumber,
             @RequestParam(required = false) CaseStatus status,
@@ -47,4 +48,14 @@ public class CaseController {
         return caseService.listCases(caseNumber, status, pageable);
     }
 
+    @PatchMapping("/{id}")
+    public CaseResponse update(@PathVariable Long id, @RequestBody UpdateCaseRequest req) {
+        return caseService.updateCase(id, req);
+    }
+
+    @DeleteMapping("/{id}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void delete(@PathVariable Long id) {
+        caseService.deleteCase(id);
+    }
 }

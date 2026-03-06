@@ -29,4 +29,5 @@ public interface CaseRepository extends JpaRepository<CaseEntity, Long> {
 
     // ✅ для запрета удаления ProcedureType (если ты это будешь делать):
     boolean existsByProcedureType_Code(String code);
+
 }

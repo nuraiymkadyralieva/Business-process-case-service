@@ -2,8 +2,8 @@ package org.example.businessprocessservice.web.controllers;
 
 import jakarta.validation.Valid;
 import org.example.businessprocessservice.service.status.CaseStatusService;
-import org.example.businessprocessservice.web.dto.CaseResponse;
 import org.example.businessprocessservice.web.dto.ChangeStatusRequest;
+import org.example.businessprocessservice.web.dto.ChangeStatusResponse;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -17,7 +17,8 @@ public class CaseStatusController {
     }
 
     @PostMapping("/{id}/status")
-    public CaseResponse changeStatus(@PathVariable Long id, @Valid @RequestBody ChangeStatusRequest req) {
-        return caseStatusService.changeStatus(id, req);
+    public ChangeStatusResponse changeStatus(@PathVariable Long id,
+                                             @Valid @RequestBody ChangeStatusRequest req) {
+        return caseStatusService.changeStatus(id, req); // ✅ было caseId -> стало id
     }
 }
