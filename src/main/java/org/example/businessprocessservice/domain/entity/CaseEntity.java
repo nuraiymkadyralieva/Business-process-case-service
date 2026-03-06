@@ -17,8 +17,9 @@ public class CaseEntity {
     @Column(name = "case_number", nullable = false, unique = true, length = 100)
     private String caseNumber;
 
-    @Column(name = "procedure_type", nullable = false, length = 50)
-    private String procedureType;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "procedure_type", referencedColumnName = "code", nullable = false)
+    private ProcedureTypeEntity procedureType;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 50)
@@ -38,8 +39,8 @@ public class CaseEntity {
     public String getCaseNumber() { return caseNumber; }
     public void setCaseNumber(String caseNumber) { this.caseNumber = caseNumber; }
 
-    public String getProcedureType() { return procedureType; }
-    public void setProcedureType(String procedureType) { this.procedureType = procedureType; }
+    public ProcedureTypeEntity getProcedureType() { return procedureType; }
+    public void setProcedureType(ProcedureTypeEntity procedureType) { this.procedureType = procedureType; }
 
     public CaseStatus getStatus() { return status; }
     public void setStatus(CaseStatus status) { this.status = status; }

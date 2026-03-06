@@ -9,6 +9,7 @@ import org.example.businessprocessservice.exception.ForbiddenStatusTransitionExc
 import org.example.businessprocessservice.exception.NotFoundException;
 import org.example.businessprocessservice.repository.CasePartyRepository;
 import org.example.businessprocessservice.repository.CaseRepository;
+import org.example.businessprocessservice.repository.DocumentRepository;
 import org.example.businessprocessservice.repository.StatusHistoryRepository;
 import org.example.businessprocessservice.web.dto.CasePartyShortResponse;
 import org.example.businessprocessservice.web.dto.CaseResponse;
@@ -24,15 +25,18 @@ public class CaseStatusService {
     private final CaseRepository caseRepository;
     private final StatusHistoryRepository historyRepository;
     private final CasePartyRepository casePartyRepository;
+    private final DocumentRepository documentRepository;
 
     public CaseStatusService(
             CaseRepository caseRepository,
             StatusHistoryRepository historyRepository,
-            CasePartyRepository casePartyRepository
+            CasePartyRepository casePartyRepository,
+            DocumentRepository documentRepository
     ) {
         this.caseRepository = caseRepository;
         this.historyRepository = historyRepository;
         this.casePartyRepository = casePartyRepository;
+        this.documentRepository = documentRepository;
     }
 
     @Transactional
@@ -84,20 +88,39 @@ public class CaseStatusService {
 
     /**
      * Обязательные условия для перехода статуса.
+     * - PROCEDURE_RUNNING требует хотя бы 1 участника
+     * - COMPLETED требует хотя бы 1 документ
      */
     private void checkPreconditions(CaseEntity c, CaseStatus from, CaseStatus to, ChangeStatusRequest req) {
-        // Пример на будущее:
-        // if (to == CaseStatus.PROCEDURE_RUNNING) {
-        //     boolean hasParties = casePartyRepository.existsByCaseId(c.getId());
-        //     if (!hasParties) throw new IllegalStateException("Cannot start procedure without parties");
-        // }
+
+        if (to == CaseStatus.PROCEDURE_RUNNING) {
+            boolean hasParties = !casePartyRepository
+                    .findAllByCaseIdOrderByCreatedAtAsc(c.getId())
+                    .isEmpty();
+
+            if (!hasParties) {
+                throw new ForbiddenStatusTransitionException(
+                        "Cannot move to PROCEDURE_RUNNING without parties"
+                );
+            }
+        }
+
+        if (to == CaseStatus.COMPLETED) {
+            boolean hasDocs = documentRepository.existsByCaseId(c.getId());
+
+            if (!hasDocs) {
+                throw new ForbiddenStatusTransitionException(
+                        "Cannot move to COMPLETED without documents"
+                );
+            }
+        }
     }
 
     private CaseResponse toResponse(CaseEntity e) {
         CaseResponse r = new CaseResponse();
         r.setId(e.getId());
         r.setCaseNumber(e.getCaseNumber());
-        r.setProcedureType(e.getProcedureType());
+        r.setProcedureType(e.getProcedureType().getCode());
         r.setStatus(e.getStatus());
         r.setStartDate(e.getStartDate());
         r.setEndDate(e.getEndDate());

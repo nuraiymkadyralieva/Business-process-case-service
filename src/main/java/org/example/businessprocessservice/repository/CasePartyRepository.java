@@ -11,4 +11,5 @@ public interface CasePartyRepository extends JpaRepository<CasePartyEntity, Long
 
     // ✅ роль используется хотя бы где-то?
     boolean existsByRole_Id(Long roleId);
+    boolean existsByCaseId(Long caseId);
 }

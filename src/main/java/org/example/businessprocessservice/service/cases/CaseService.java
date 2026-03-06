@@ -3,14 +3,19 @@ package org.example.businessprocessservice.service.cases;
 import jakarta.transaction.Transactional;
 import org.example.businessprocessservice.domain.entity.CaseEntity;
 import org.example.businessprocessservice.domain.entity.CasePartyEntity;
+import org.example.businessprocessservice.domain.entity.ProcedureTypeEntity;
 import org.example.businessprocessservice.domain.enums.CaseStatus;
 import org.example.businessprocessservice.repository.CasePartyRepository;
 import org.example.businessprocessservice.repository.CaseRepository;
+import org.example.businessprocessservice.repository.ProcedureTypeRepository;
 import org.example.businessprocessservice.web.dto.CasePartyShortResponse;
 import org.example.businessprocessservice.web.dto.CaseResponse;
 import org.example.businessprocessservice.web.dto.CreateCaseRequest;
+import org.springframework.data.domain.Page;
 import org.springframework.stereotype.Service;
-
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
+import org.springframework.data.web.SortDefault;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -19,10 +24,16 @@ public class CaseService {
 
     private final CaseRepository caseRepository;
     private final CasePartyRepository casePartyRepository;
+    private final ProcedureTypeRepository procedureTypeRepository;
 
-    public CaseService(CaseRepository caseRepository, CasePartyRepository casePartyRepository) {
+    public CaseService(
+            CaseRepository caseRepository,
+            CasePartyRepository casePartyRepository,
+            ProcedureTypeRepository procedureTypeRepository
+    ) {
         this.caseRepository = caseRepository;
         this.casePartyRepository = casePartyRepository;
+        this.procedureTypeRepository = procedureTypeRepository;
     }
 
     @Transactional
@@ -31,9 +42,17 @@ public class CaseService {
             throw new IllegalArgumentException("Case with this number already exists");
         }
 
+        String procedureCode = normalizeCode(req.getProcedureType());
+        if (procedureCode.isBlank()) {
+            throw new IllegalArgumentException("procedureType is required");
+        }
+
+        ProcedureTypeEntity pt = procedureTypeRepository.findByCode(procedureCode)
+                .orElseThrow(() -> new IllegalArgumentException("Unknown procedureType: " + procedureCode));
+
         CaseEntity e = new CaseEntity();
         e.setCaseNumber(req.getCaseNumber());
-        e.setProcedureType(req.getProcedureType());
+        e.setProcedureType(pt); // ✅ теперь это справочник (entity), а не строка
         e.setStatus(CaseStatus.CREATED);
         e.setStartDate(LocalDateTime.now());
 
@@ -41,7 +60,7 @@ public class CaseService {
         return toResponse(saved);
     }
 
-    @Transactional // ✅ важно, чтобы role.getCode() (LAZY) не падал
+    @Transactional // ✅ важно, чтобы LAZY (role/procedureType) спокойно читались
     public CaseResponse getCase(Long id) {
         CaseEntity e = caseRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Case not found"));
@@ -52,7 +71,10 @@ public class CaseService {
         CaseResponse r = new CaseResponse();
         r.setId(e.getId());
         r.setCaseNumber(e.getCaseNumber());
-        r.setProcedureType(e.getProcedureType());
+
+        // ✅ в API отдаём КОД типа процедуры
+        r.setProcedureType(e.getProcedureType() == null ? null : e.getProcedureType().getCode());
+
         r.setStatus(e.getStatus());
         r.setStartDate(e.getStartDate());
         r.setEndDate(e.getEndDate());
@@ -80,4 +102,26 @@ public class CaseService {
 
         return r;
     }
-}
+
+    private static String normalizeCode(String s) {
+        return s == null ? "" : s.trim().toUpperCase();
+    }
+    @Transactional
+    public Page<CaseResponse> listCases(String caseNumber, CaseStatus status, Pageable pageable) {
+
+        String q = caseNumber == null ? "" : caseNumber.trim();
+
+        Page<CaseEntity> page;
+
+        if (status != null && !q.isBlank()) {
+            page = caseRepository.findAllByStatusAndCaseNumberContainingIgnoreCase(status, q, pageable);
+        } else if (status != null) {
+            page = caseRepository.findAllByStatus(status, pageable); // см. ниже
+        } else if (!q.isBlank()) {
+            page = caseRepository.findAllByCaseNumberContainingIgnoreCase(q, pageable);
+        } else {
+            page = caseRepository.findAll(pageable);
+        }
+
+        return page.map(this::toResponse);}
+    }
